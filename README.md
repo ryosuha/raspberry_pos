@@ -1,1 +1,3 @@
-# raspberry_pos
+# In Development
+
+# POS system on raspberry pi
