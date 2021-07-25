@@ -3,6 +3,7 @@ extern crate web_srv;
 use web_srv::ThreadPool;
 
 use std::thread;
+use std::str;
 use std::time::Duration;
 use std::path::PathBuf;
 use std::io::prelude::*;
@@ -44,13 +45,41 @@ fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
     let req_get_none = b"GET / HTTP/1.1\r\n";
 
     //Prepare Response File
-    let (status_line, filename) = if buffer.starts_with(req_get_none) {
+    let (status_line,mut filename) = if buffer.starts_with(req_get_none) {
         //("HTTP/1.1 200 OK\r\n\r\n", "/home/ryo/web_srv/html/mainpage.html")
         ("HTTP/1.1 200 OK\r\n\r\n", "mainpage.html")
     }
     else {
         ("HTTP/1.1 200 OK\r\n\r\n", "not_implemented.html")
     };
+
+    //Split HTTP Method(GET/POST/PUT/...)
+    let buffer_tmp = buffer.clone();
+    println!("Copied buffer: {}", String::from_utf8_lossy(&buffer_tmp[..]));
+    //let mut split = buffer_tmp.as_str().split_whitespace();
+    //let mut split = str::from_utf8(&buffer_tmp).unwrap().split_whitespace();
+    //println!("{:?}",split.next());
+    //let parsed: Vec<&str> = str::from_utf8(&buffer_tmp).unwrap().split_whitespace().collect();
+    let parsedline: Vec<&str> = str::from_utf8(&buffer_tmp).unwrap().split("\r\n").collect();
+    let parsed: Vec<&str> = parsedline[0].split_whitespace().collect();
+    let parsed_len = parsed.len();
+    println!("parsed length : {}",parsed_len);
+    for i in parsed.iter() {
+        println!("{}",i);
+    }
+
+    filename = parsed[1];
+
+    //change requested "/" to "index.html"
+    if filename == "/" {
+        filename = "index.html";
+    }
+    else {
+        filename = remove_first_slash(&filename);
+        //remove first "/"
+    }
+    
+    //println!("{}",filename);
 
     homepath.push(filename);
     println!("{:?}",homepath);
@@ -77,30 +106,15 @@ fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
     stream.write(response.as_bytes()).unwrap();
     stream.flush().unwrap();
 
-    /*
-    if buffer.starts_with(req_get_none) {
-        homepath.push("mainpage.html");
-        let mut file = File::open(homepath).unwrap();
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-
-        let response = format!("HTTP/1.1 200 OK\r\n\r\n{}",contents);
-        println!("Response: {}", &response);
-
-        stream.write(response.as_bytes()).unwrap();
-        stream.flush().unwrap();
-    }
-    else {
-        let response = format!("HTTP/1.1 404 OK\r\n\r\n");
-
-        stream.write(response.as_bytes()).unwrap();
-        stream.flush().unwrap();
-    }
-    */   
-
 }
 
 fn file_check(filepath: &PathBuf) -> bool {
     println!("{}", Path::new(&filepath).exists());
     Path::new(&filepath).exists()
+}
+
+fn remove_first_slash(target: &str) -> &str {
+    let mut result = target.chars();
+    result.next();
+    result.as_str()
 }
