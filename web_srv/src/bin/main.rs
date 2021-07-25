@@ -9,6 +9,7 @@ use std::io::prelude::*;
 use std::net::TcpStream;
 use std::net::TcpListener;
 use std::fs::File;
+use std::path::Path;
 
 fn main() {
     let mut basepath = PathBuf::new();
@@ -48,12 +49,26 @@ fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
         ("HTTP/1.1 200 OK\r\n\r\n", "mainpage.html")
     }
     else {
-        ("HTTP/1.1 404 NOT FOUND\r\n\r\n", "not_found.html")
+        ("HTTP/1.1 200 OK\r\n\r\n", "not_implemented.html")
     };
 
     homepath.push(filename);
     println!("{:?}",homepath);
+
+    //Check file requested file is found or not.
+    //True if found
+    //println!("{}",file_check(&homepath));
+    if !file_check(&homepath){
+        homepath.set_file_name("not_found.html");
+        println!("File Not Found");
+    }
+    else {
+        println!("File Found");
+    }
+
     let mut file = File::open(homepath).unwrap();
+
+
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
 
@@ -83,5 +98,9 @@ fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
     }
     */   
 
-    
+}
+
+fn file_check(filepath: &PathBuf) -> bool {
+    println!("{}", Path::new(&filepath).exists());
+    Path::new(&filepath).exists()
 }
