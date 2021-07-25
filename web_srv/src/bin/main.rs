@@ -79,13 +79,15 @@ fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
         //println!("File Not Found"); //DEBUG
     }
     else {
-        "HTTP/1.1 200 OK\r\n\r\n"
+        "HTTP/1.1 404 NOT FOUND\r\n\r\n"
         //println!("File Found"); //DEBUG
     };
 
+    //-----------------------------------------------
+    //Prepare requested response message
+    //Read requested file
+    //-----------------------------------------------
     let mut file = File::open(homepath).unwrap();
-
-
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
 
