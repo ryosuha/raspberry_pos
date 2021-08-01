@@ -57,13 +57,13 @@ fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
 
     //Split HTTP Method(GET/POST/PUT/...)
     let buffer_tmp = buffer.clone();
-    //println!("Copied buffer: {}", String::from_utf8_lossy(&buffer_tmp[..])); //DEBUG
+    if print_debug() { println!("DEBUG 0004 : Copied buffer: {}", String::from_utf8_lossy(&buffer_tmp[..])); }
     let parsedline: Vec<&str> = str::from_utf8(&buffer_tmp).unwrap().split("\r\n").collect();
     let parsed: Vec<&str> = parsedline[0].split_whitespace().collect();
     let _parsed_len = parsed.len();
-    //println!("parsed length : {}",_parsed_len); //DEBUG
+    if print_debug() { println!("DEBUG 0005 : parsed length : {}",_parsed_len); }
     for _i in parsed.iter() {
-        //println!("{}",_i); //DEBUG
+        if print_debug() { println!("DEBUG 0006: {}",_i); }
     }
 
     let mut filename = parsed[1];
@@ -77,24 +77,24 @@ fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
         //remove first "/"
     }
     
-    //println!("{}",filename); //DEBUG
+    if print_debug() { println!("DEBUG 0007 : Filename {}",filename); }
 
     homepath.push(filename);
-    println!("{:?}",homepath); //DEBUG
+    if print_debug() { println!("DEBUG 0008 : Homepath {:?}",homepath); }
 
     //-----------------------------------------------
     //Check file requested file is found or not.
     //True if found
     //-----------------------------------------------
-    //println!("{}",file_check(&homepath)); //DEBUG
+    if print_debug() { println!("DEBUG 0009 : {}",file_check(&homepath)); }
     let status_line = if !file_check(&homepath) {
         homepath.set_file_name("not_found.html");
+        if print_debug() { println!("DEBUG 0010 : File Not Found"); }
         "HTTP/1.1 404 NOT FOUND\r\n\r\n"
-        //println!("File Not Found"); //DEBUG
     }
     else {
+        if print_debug() { println!("DEBUG 0011 : File Found"); }
         "HTTP/1.1 200 OK\r\n\r\n"
-        //println!("File Found"); //DEBUG
     };
 
     //-----------------------------------------------
@@ -113,7 +113,7 @@ fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
 }
 
 fn file_check(filepath: &PathBuf) -> bool {
-    //println!("{}", Path::new(&filepath).exists()); //DEBUG
+    if print_debug() { println!("{}", Path::new(&filepath).exists()); }
     Path::new(&filepath).exists()
 }
 
