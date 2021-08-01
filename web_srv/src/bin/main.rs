@@ -3,12 +3,24 @@ extern crate web_srv;
 use web_srv::ThreadPool;
 
 use std::str;
-use std::path::PathBuf;
+use std::path::{Path,PathBuf};
 use std::io::prelude::*;
-use std::net::TcpStream;
-use std::net::TcpListener;
+use std::net::{TcpStream,TcpListener};
 use std::fs::File;
-use std::path::Path;
+
+
+#[macro_use]
+extern crate lazy_static;
+
+lazy_static!(
+    static ref DEBUG_MODE: bool = true;    //default value for debugging
+    /*
+    How to print a debug message sample
+    println!("{}",print_debug());
+    or
+    if print_debug() { println!("DEBUG 0001 : {:?}",&homepath); }
+    */
+);
 
 fn main() {
     let mut basepath = PathBuf::new();
@@ -16,15 +28,16 @@ fn main() {
     //Preparing directory path
     basepath.push(dirs::home_dir().unwrap());
     basepath.push("raspberry_pos/web_srv/html");
-    //println!("{:?}",&basepath); //DEBUG
 
+    if print_debug() { println!("DEBUG 0000: {:?}",&basepath); }
+    
     let listener = TcpListener::bind("0.0.0.0:8000").unwrap();
-    let pool = ThreadPool::new(12);
+    let pool = ThreadPool::new(128);
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
         let homepath = PathBuf::from(&basepath);
-
+        
         pool.execute(|| {
             handle_connection(stream,homepath);
         });
@@ -36,10 +49,11 @@ fn main() {
 
 fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
     let mut buffer = [0; 1500];
-    //println!("DEBUG 0000 : {:?}",&homepath); //DEBUG
+    
+    if print_debug() { println!("DEBUG 0001 : {:?}",&homepath); }
 
     stream.read(&mut buffer).unwrap();
-    println!("Request: {}", String::from_utf8_lossy(&buffer[..])); //DEBUG
+    if print_debug() { println!("DEBUG 0002 Request: {}", String::from_utf8_lossy(&buffer[..])); }
 
     //Split HTTP Method(GET/POST/PUT/...)
     let buffer_tmp = buffer.clone();
@@ -66,7 +80,7 @@ fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
     //println!("{}",filename); //DEBUG
 
     homepath.push(filename);
-    //println!("{:?}",homepath); //DEBUG
+    println!("{:?}",homepath); //DEBUG
 
     //-----------------------------------------------
     //Check file requested file is found or not.
@@ -75,11 +89,11 @@ fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
     //println!("{}",file_check(&homepath)); //DEBUG
     let status_line = if !file_check(&homepath) {
         homepath.set_file_name("not_found.html");
-        "HTTP/1.1 200 OK\r\n\r\n"
+        "HTTP/1.1 404 NOT FOUND\r\n\r\n"
         //println!("File Not Found"); //DEBUG
     }
     else {
-        "HTTP/1.1 404 NOT FOUND\r\n\r\n"
+        "HTTP/1.1 200 OK\r\n\r\n"
         //println!("File Found"); //DEBUG
     };
 
@@ -107,4 +121,10 @@ fn remove_first_slash(target: &str) -> &str {
     let mut result = target.chars();
     result.next();
     result.as_str()
+}
+
+fn print_debug() -> bool{
+    //println!("DEBUG : {}", *DEBUG_MODE);   //DEBUGing a DEBUG function
+    if *DEBUG_MODE { true }
+    else { false }
 }
