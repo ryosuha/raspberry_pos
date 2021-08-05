@@ -87,28 +87,30 @@ fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
     //True if found
     //-----------------------------------------------
     if print_debug() { println!("DEBUG 0009 : {}",file_check(&homepath)); }
-    let status_line = if !file_check(&homepath) {
+    let (status_line,found_flag) = if !file_check(&homepath) {
         homepath.set_file_name("not_found.html");
         if print_debug() { println!("DEBUG 0010 : File Not Found"); }
-        "HTTP/1.1 404 NOT FOUND\r\n\r\n"
+        ("HTTP/1.1 404 NOT FOUND\r\n\r\n",0)
     }
     else {
         if print_debug() { println!("DEBUG 0011 : File Found"); }
-        "HTTP/1.1 200 OK\r\n\r\n"
+        ("HTTP/1.1 200 OK\r\n\r\n",1)
     };
 
     //-----------------------------------------------
     //Prepare requested response message
     //Read requested file
     //-----------------------------------------------
-    let mut file = File::open(homepath).unwrap();
-    let mut contents = String::new();
-    file.read_to_string(&mut contents).unwrap();
+    if found_flag == 1 {
+        let mut file = File::open(homepath).unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
 
-    let response = format!("{}{}", status_line, contents);
+        let response = format!("{}{}", status_line, contents);
 
-    stream.write(response.as_bytes()).unwrap();
-    stream.flush().unwrap();
+        stream.write(response.as_bytes()).unwrap();
+        stream.flush().unwrap();
+    }
 
 }
 
