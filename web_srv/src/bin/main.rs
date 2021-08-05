@@ -63,10 +63,12 @@ fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
     let _parsed_len = parsed.len();
     if print_debug() { println!("DEBUG 0005 : parsed length : {}",_parsed_len); }
     for _i in parsed.iter() {
-        if print_debug() { println!("DEBUG 0006: {}",_i); }
+        if print_debug() { println!("DEBUG 0006 : {}",_i); }
     }
 
     let mut filename = parsed[1];
+
+    
 
     //change requested "/" to "index.html"
     if filename == "/" {
@@ -75,42 +77,67 @@ fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
     else {
         filename = remove_first_slash(&filename);
         //remove first "/"
+        if print_debug() { println!("DEBUG 0013 : is api call {}",is_api(&filename)); }
+
+        //-----------------------------------------------
+        //Process For API Call
+        //path = /api/xxx
+        //-----------------------------------------------
+        if is_api(&filename) {
+            if print_debug() { println!("DEBUG 0013 : is api call {}",is_api(&filename)); }
+        }
+        //-----------------------------------------------
+        //Process For !API Call
+        //-----------------------------------------------
+        else{
+            //TO DO GET METHOD or POST METHOD
+
+
+            //-----------------------------------------------
+            //Process HTTP GET Request
+            //-----------------------------------------------
+            if print_debug() { println!("DEBUG 0007 : Filename {}",filename); }
+
+            homepath.push(filename);
+            if print_debug() { println!("DEBUG 0008 : Homepath {:?}",homepath); }
+
+            //-----------------------------------------------
+            //Check file requested file is found or not.
+            //True if found
+            //-----------------------------------------------
+            if print_debug() { println!("DEBUG 0009 : {}",file_check(&homepath)); }
+
+            let (status_line,found_flag) = if !file_check(&homepath) {
+                homepath.set_file_name("not_found.html");
+                if print_debug() { println!("DEBUG 0010 : File Not Found"); }
+                ("HTTP/1.1 404 NOT FOUND\r\n\r\n",0)
+                }
+                else {
+                    if print_debug() { println!("DEBUG 0011 : File Found"); }
+                    ("HTTP/1.1 200 OK\r\n\r\n",1)
+                };
+
+            //-----------------------------------------------
+            //Prepare requested response message
+            //Read requested file
+            //-----------------------------------------------
+            if found_flag == 1 {
+                let mut file = File::open(homepath).unwrap();
+                let mut contents = String::new();
+                file.read_to_string(&mut contents).unwrap();
+
+                let response = format!("{}{}", status_line, contents);
+
+                stream.write(response.as_bytes()).unwrap();
+                stream.flush().unwrap();
+            }
+        }
+        
     }
     
-    if print_debug() { println!("DEBUG 0007 : Filename {}",filename); }
+    
 
-    homepath.push(filename);
-    if print_debug() { println!("DEBUG 0008 : Homepath {:?}",homepath); }
-
-    //-----------------------------------------------
-    //Check file requested file is found or not.
-    //True if found
-    //-----------------------------------------------
-    if print_debug() { println!("DEBUG 0009 : {}",file_check(&homepath)); }
-    let (status_line,found_flag) = if !file_check(&homepath) {
-        homepath.set_file_name("not_found.html");
-        if print_debug() { println!("DEBUG 0010 : File Not Found"); }
-        ("HTTP/1.1 404 NOT FOUND\r\n\r\n",0)
-    }
-    else {
-        if print_debug() { println!("DEBUG 0011 : File Found"); }
-        ("HTTP/1.1 200 OK\r\n\r\n",1)
-    };
-
-    //-----------------------------------------------
-    //Prepare requested response message
-    //Read requested file
-    //-----------------------------------------------
-    if found_flag == 1 {
-        let mut file = File::open(homepath).unwrap();
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-
-        let response = format!("{}{}", status_line, contents);
-
-        stream.write(response.as_bytes()).unwrap();
-        stream.flush().unwrap();
-    }
+    
 
 }
 
@@ -123,6 +150,19 @@ fn remove_first_slash(target: &str) -> &str {
     let mut result = target.chars();
     result.next();
     result.as_str()
+}
+
+fn is_api(requests: &str) -> bool {
+    let parsedrequests: Vec<&str> = requests.split("/").collect();
+    for _i in parsedrequests.iter() {
+        if print_debug() { println!("DEBUG 0012 : {}",_i); }
+    }
+    if parsedrequests[0] == "api" {
+        true
+    }
+    else {
+        false
+    }
 }
 
 fn print_debug() -> bool{
