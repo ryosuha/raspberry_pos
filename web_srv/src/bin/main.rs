@@ -47,7 +47,7 @@ fn main() {
 }
 
 
-fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
+fn handle_connection(mut stream: TcpStream,homepath: PathBuf) {
     let mut buffer = [0; 1500];
     
     if print_debug() { println!("DEBUG 0001 : {:?}",&homepath); }
@@ -68,78 +68,80 @@ fn handle_connection(mut stream: TcpStream,mut homepath: PathBuf) {
 
     let mut filename = parsed[1];
 
-    
-
     //change requested "/" to "index.html"
     if filename == "/" {
         filename = "index.html";
     }
     else {
-        filename = remove_first_slash(&filename);
         //remove first "/"
-        if print_debug() { println!("DEBUG 0013 : is api call {}",is_api(&filename)); }
-
-        //-----------------------------------------------
-        //Process For API Call
-        //path = /api/xxx
-        //-----------------------------------------------
-        if is_api(&filename) {
-            if print_debug() { println!("DEBUG 0013 : is api call {}",is_api(&filename)); }
-        }
-        //-----------------------------------------------
-        //Process For !API Call
-        //-----------------------------------------------
-        else{
-            //TO DO GET METHOD or POST METHOD
-
-
-            //-----------------------------------------------
-            //Process HTTP GET Request
-            //-----------------------------------------------
-            if print_debug() { println!("DEBUG 0007 : Filename {}",filename); }
-
-            homepath.push(filename);
-            if print_debug() { println!("DEBUG 0008 : Homepath {:?}",homepath); }
-
-            //-----------------------------------------------
-            //Check file requested file is found or not.
-            //True if found
-            //-----------------------------------------------
-            if print_debug() { println!("DEBUG 0009 : {}",file_check(&homepath)); }
-
-            let (status_line,found_flag) = if !file_check(&homepath) {
-                homepath.set_file_name("not_found.html");
-                if print_debug() { println!("DEBUG 0010 : File Not Found"); }
-                ("HTTP/1.1 404 NOT FOUND\r\n\r\n",0)
-                }
-                else {
-                    if print_debug() { println!("DEBUG 0011 : File Found"); }
-                    ("HTTP/1.1 200 OK\r\n\r\n",1)
-                };
-
-            //-----------------------------------------------
-            //Prepare requested response message
-            //Read requested file
-            //-----------------------------------------------
-            if found_flag == 1 {
-                let mut file = File::open(homepath).unwrap();
-                let mut contents = String::new();
-                file.read_to_string(&mut contents).unwrap();
-
-                let response = format!("{}{}", status_line, contents);
-
-                stream.write(response.as_bytes()).unwrap();
-                stream.flush().unwrap();
-            }
-        }
-        
+        filename = remove_first_slash(&filename);
     }
-    
-    
 
+    //Evaluate API Call
+    if print_debug() { println!("DEBUG 0013 : is api call {}",is_api(&filename)); }
+    if is_api(&filename) {
+        if print_debug() { println!("DEBUG 0013 : is api call {}",is_api(&filename)); }
+    }
+
+    //Evaluate Request type for !API Call
+    let mut response= String::new();
+    match parsed[0] {
+        "GET" => response = response_http_get(&homepath,&filename),
+        _ => response = format!("AAAAAAA"),
+    }
+
+    stream.write(response.as_bytes()).unwrap();
+    stream.flush().unwrap();
+}
+
+//-----------------------------------------------
+//Funtion To Process GET Method
+//Retrieve homedir as homepath and
+//Request URI as filename
+//-----------------------------------------------
+fn response_http_get<'a>(homepath: &'a PathBuf,filename: &str) -> String {
+    let mut filepath = homepath.clone();
+    //Merge homedir with requested URI to point requested file
+    if print_debug() { println!("DEBUG 0007 : Filename {}",filename); }
+    filepath.push(filename);
+    if print_debug() { println!("DEBUG 0008 : Homepath {:?}",filepath); }
+
+    //-----------------------------------------------
+    //Check file requested file is found or not.
+    //True if found
+    //-----------------------------------------------
+    if print_debug() { println!("DEBUG 0009 : {}",file_check(&filepath)); }
+    let (status_line,found_flag) = if !file_check(&filepath) {
+            filepath.set_file_name("not_found.html");
+            if print_debug() { println!("DEBUG 0010 : File Not Found"); }
+            ("HTTP/1.1 404 NOT FOUND\r\n\r\n",0)
+        }
+        else {
+            if print_debug() { println!("DEBUG 0011 : File Found"); }
+            ("HTTP/1.1 200 OK\r\n\r\n",1)
+        };
     
+    //-----------------------------------------------
+    //Prepare requested response message
+    //Read requested file
+    //-----------------------------------------------
+    //if found_flag == 1 {
+    let mut file = File::open(filepath).unwrap();
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap();
+
+    format!("{}{}", status_line, contents)
+    //}
 
 }
+
+//-----------------------------------------------
+//Funtion To Process POST Method
+//Retrieve homedir as homepath and
+//Request URI as filename
+//-----------------------------------------------
+// fn response_http_post(homepath: &PathBuf,filename: &str) -> &str {}
+
 
 fn file_check(filepath: &PathBuf) -> bool {
     if print_debug() { println!("{}", Path::new(&filepath).exists()); }
