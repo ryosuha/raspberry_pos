@@ -106,7 +106,7 @@ fn handle_connection(mut stream: TcpStream,homepath: PathBuf) {
     else{
         //Evaluate Request Method  
         match parsed[0] {
-            "GET" => _response = response_http_get(&homepath,&filename),
+            "GET" => _response = get_request(&homepath,&filename),
             "POST" => _response = format!("NOT IMPLEMENTED"),
             "PUT" => _response = format!("NOT IMPLEMENTED"),
             _ => {
@@ -132,7 +132,7 @@ fn handle_connection(mut stream: TcpStream,homepath: PathBuf) {
 //Retrieve homedir as homepath and
 //Request URI as filename
 //-----------------------------------------------
-fn response_http_get<'a>(homepath: &'a PathBuf,filename: &str) -> String {
+fn get_request<'a>(homepath: &'a PathBuf,filename: &str) -> String {
     let mut filepath = homepath.clone();
     //Merge homedir with requested URI to point requested file
     if print_debug() { println!("DEBUG 0007 : Filename {}",filename); }
@@ -176,7 +176,9 @@ fn response_http_get<'a>(homepath: &'a PathBuf,filename: &str) -> String {
 //Retrieve homedir as homepath and
 //Request URI as filename
 //-----------------------------------------------
-// fn post_request(mut stream: TcpStream,homepath: &PathBuf,filename: &str) -> &str {}
+// fn post_request(homepath: &PathBuf,filename: &str) -> &str {}
+
+
 
 //NOT IMPLEMENTED YET
 //-----------------------------------------------
@@ -184,7 +186,9 @@ fn response_http_get<'a>(homepath: &'a PathBuf,filename: &str) -> String {
 //Retrieve homedir as homepath and
 //Request URI as filename
 //-----------------------------------------------
-// fn put_request(mut stream: TcpStream,homepath: &PathBuf,filename: &str) -> &str {}
+// fn put_request(homepath: &PathBuf,filename: &str) -> &str {}
+
+
 
 //-----------------------------------------------
 //Funtion To Process GET API Call
@@ -199,12 +203,8 @@ fn get_api(mut stream: TcpStream,homepath: &PathBuf,filename: &str) {
     stream.flush().unwrap();
 }
 
-fn lastresort_api(mut stream: TcpStream,homepath: &PathBuf,filename: &str) {
-    //let mut _response = String::new();
-    //_response = format!("NOT IMPLEMENTED");
-    //stream.write(_response.as_bytes()).unwrap();
-    //stream.flush().unwrap();
-    stream.shutdown(Shutdown::Both).expect("shutdown call failed");
+fn lastresort_api(mut _stream: TcpStream,homepath: &PathBuf,filename: &str) {
+    _stream.shutdown(Shutdown::Both).expect("shutdown call failed");
     if print_debug() { println!("DEBUG 0017 : API CALL GOES TO LAST RESORT"); }
 }
 
