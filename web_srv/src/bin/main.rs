@@ -9,11 +9,15 @@ use std::net::{TcpStream,TcpListener,Shutdown};
 use std::fs::File;
 use std::sync::Mutex;
 
+//----------DEFAULT PARAMETER----------//
+const BUFFER: usize = 8000;     //request read buffer
+const DEBUG: bool = false;       //debug configuration
+
 #[macro_use]
 extern crate lazy_static;
 
 lazy_static!(
-    static ref DEBUG_MODE: Mutex<bool> = Mutex::new(false);    //default value for debugging
+    static ref DEBUG_MODE: Mutex<bool> = Mutex::new(DEBUG);
     /*
     How to print a debug message sample
     println!("{}",print_debug());
@@ -27,6 +31,7 @@ fn main() {
     let mut basepath = PathBuf::new();
 
     //test changing debug mode change_debug();
+    //TODO Read configuration file to change debug configuration
     change_debug(true);
 
     //Preparing directory path
@@ -52,7 +57,7 @@ fn main() {
 
 
 fn handle_connection(mut stream: TcpStream,homepath: PathBuf) {
-    let mut buffer = [0; 1500];
+    let mut buffer = [0; BUFFER]; //Read buffer
     
     if print_debug() { println!("DEBUG 0001 : {:?}",&homepath); }
 
@@ -126,6 +131,9 @@ fn handle_connection(mut stream: TcpStream,homepath: PathBuf) {
     }
 
 }
+
+
+//----------BEGIN OF REQUEST ROUTING FUNCTION---------//
 
 //-----------------------------------------------
 //Funtion To Process GET Method
@@ -203,10 +211,22 @@ fn get_api(mut stream: TcpStream,homepath: &PathBuf,filename: &str) {
     stream.flush().unwrap();
 }
 
+
+//-----------------------------------------------
+//Funtion To Process UNKNOWN API Call
+//Retrieve homedir as homepath and
+//Request URI as resources and
+//Stream as TCPStream
+//Shutdown TCP Connection immediately
+//-----------------------------------------------
 fn lastresort_api(mut _stream: TcpStream,homepath: &PathBuf,filename: &str) {
     _stream.shutdown(Shutdown::Both).expect("shutdown call failed");
     if print_debug() { println!("DEBUG 0017 : API CALL GOES TO LAST RESORT"); }
 }
+
+
+//-----------END OF REQUEST ROUTING FUNCTION----------//
+
 
 fn file_check(filepath: &PathBuf) -> bool {
     if print_debug() { println!("{}", Path::new(&filepath).exists()); }
