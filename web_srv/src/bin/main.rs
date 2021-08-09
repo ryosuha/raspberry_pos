@@ -95,7 +95,7 @@ fn handle_connection(mut stream: TcpStream,homepath: PathBuf) {
         filename = remove_first_slash(&filename);
     }
 
-    //reparse requesr URI
+    //reparse request URI
     //example: /aaa/bbb/ccc.html -> {"","aaa","bbb","ccc.html"}
     let mut parsed_uri: Vec<&str> = parsed[1].split("/").collect();
     //remove first null vector -> {"aaa","bbb","ccc.html"}
@@ -106,7 +106,28 @@ fn handle_connection(mut stream: TcpStream,homepath: PathBuf) {
         if print_debug() { println!("DEBUG 0019 : {}",_i); }
     }
 
-    let mut _response = String::new();
+    //Recognizing requested resource or data format
+    //aaa/bbb/ccc.html -> "html" file
+    //To process data format
+    let mut data_format: Vec<&str> = parsed_uri[_parsed_uri_len - 1].split(".").collect();
+    let resource_format = match data_format.len() {
+        //not a file or no dot on request
+        1 => {
+            if print_debug() { println!("DEBUG 0026 : requested resource is {}",data_format[0]); }
+            "NONE"
+        },
+        2 => {
+            if print_debug() { println!("DEBUG 0027 : requested resource format is {}",data_format[1]); }
+            data_format[1]
+        },
+        _ => {
+            if print_debug() { println!("DEBUG 0028 : unable to recognize requested resource format"); }
+            "UNKNOWN"
+        },
+    };
+
+    //let mut _response = String::new();
+    let mut _response: Vec<u8> = Vec::new();
     let mut lastresort_request: bool = false;
 
     //Evaluate API Call
@@ -139,12 +160,20 @@ fn handle_connection(mut stream: TcpStream,homepath: PathBuf) {
     else{
         //Evaluate Request Method  
         match parsed[0] {
-            "GET" => _response = get_request(&homepath,&filename),
-            "POST" => _response = format!("NOT IMPLEMENTED"),
-            "PUT" => _response = format!("NOT IMPLEMENTED"),
+            "GET" => {
+                match resource_format {
+                    "html" => _response = get_request(&homepath,&filename).into_bytes(),
+                    "jpg" => _response = get_jpg_request(&homepath,&filename),
+                    "NONE" => _response = format!("NOT IMPLEMENTED").into_bytes(),
+                    "UNKNOWN" => _response = format!("NOT IMPLEMENTED").into_bytes(),
+                    _ => _response = format!("NOT IMPLEMENTED").into_bytes(),
+                }
+            },
+            "POST" => _response = format!("NOT IMPLEMENTED").into_bytes(),
+            "PUT" => _response = format!("NOT IMPLEMENTED").into_bytes(),
             _ => {
                 lastresort_request = true;
-                _response = format!("UNDEFINED REQUEST METHOD")
+                _response = format!("UNDEFINED REQUEST METHOD").into_bytes()
             }
         }
 
@@ -153,7 +182,8 @@ fn handle_connection(mut stream: TcpStream,homepath: PathBuf) {
             if print_debug() { println!("DEBUG 0018 : REQUEST GOES TO LAST RESORT"); }
         }
         else {
-            stream.write(_response.as_bytes()).unwrap();
+            //stream.write(_response.as_bytes()).unwrap();
+            stream.write(&_response).unwrap();
             stream.flush().unwrap();
         }
     }
@@ -179,7 +209,7 @@ fn get_request<'a>(homepath: &'a PathBuf,filename: &str) -> String {
     //Check file requested file is found or not.
     //True if found
     //-----------------------------------------------
-    if print_debug() { println!("DEBUG 0009 : {}",file_check(&filepath)); }
+    if print_debug() { println!("DEBUG 0009 : is file found? {}",file_check(&filepath)); }
     let status_line = if !file_check(&filepath) {
             //filepath.set_file_name("not_found.html");
             filepath = homepath.clone();
@@ -202,8 +232,46 @@ fn get_request<'a>(homepath: &'a PathBuf,filename: &str) -> String {
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
 
+    
     format!("{}{}", status_line, contents)
 
+}
+
+fn get_jpg_request(homepath: &PathBuf,filename: &str) -> Vec<u8> {
+    let mut filepath = homepath.clone();
+    //Merge homedir with requested URI to point requested file
+    if print_debug() { println!("DEBUG 0029 : Filename {}",filename); }
+    filepath.push(filename);
+    if print_debug() { println!("DEBUG 0030 : Homepath {:?}",filepath); }
+
+    //-----------------------------------------------
+    //Check file requested file is found or not.
+    //True if found
+    //-----------------------------------------------
+    if print_debug() { println!("DEBUG 0031 : is file found? {}",file_check(&filepath)); }
+    let (status_line,flag) = if !file_check(&filepath) {
+            //filepath.set_file_name("not_found.html");
+            filepath = homepath.clone();
+            filepath.push("not_found.html");
+            if print_debug() { println!("DEBUG 0032 : File Not Found"); }
+            ("HTTP/1.1 404 NOT FOUND\r\n\r\n",0)
+        }
+        else {
+            if print_debug() { println!("DEBUG 0033 : File Found"); }
+            ("HTTP/1.1 200 OK\r\n\r\n",1)
+        };
+    
+    //-----------------------------------------------
+    //Prepare requested response message
+    //Read requested file
+    //-----------------------------------------------
+    
+    if print_debug() { println!("DEBUG 0034 : {:?}",filepath); }
+    let mut file = File::open(filepath).unwrap();
+    let mut contents: Vec<u8> = Vec::new();
+    file.read_to_end(&mut contents).unwrap();
+
+    [status_line.as_bytes().to_vec() , contents].concat()
 }
 
 //NOT IMPLEMENTED YET
@@ -289,7 +357,7 @@ fn api_lastresort(mut _stream: TcpStream,homepath: &PathBuf,filename: &str) {
 
 
 fn file_check(filepath: &PathBuf) -> bool {
-    if print_debug() { println!("DEBUG 0025 : {}", Path::new(&filepath).exists()); }
+    if print_debug() { println!("DEBUG 0025 : is file exist? {}", Path::new(&filepath).exists()); }
     Path::new(&filepath).exists()
 }
 
