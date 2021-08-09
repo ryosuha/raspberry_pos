@@ -244,15 +244,21 @@ fn get_api_testsse(mut stream: TcpStream,homepath: &PathBuf,filename: &str) {
     //stream.shutdown(Shutdown::Read).expect("shutdown call failed");
     loop {
         //contents = "data: {\"data\": \"test content\"}\r\n\r\n".to_string();
-        contents = "data: <img src=\"sample.gif\" alt=\"サンプル\">\r\n\r\n".to_string();
+        contents = "data: <img src=\"image/test.jpg\" alt=\"sample\">\r\n\r\n".to_string();
 
         response = format!("{}{}", status_line, contents);
 
         if print_debug() { println!("DEBUG 0024 : Response : {:?}",response); }
-        stream.write(response.as_bytes()).unwrap();
-        stream.flush().unwrap();
+        
+        //stream.write(response.as_bytes()).unwrap();
+        //escaping from possible write on rst socket
+        //exit thread before panic
+        match stream.write(response.as_bytes()) {
+            Ok(n) => stream.flush().unwrap(),
+            Err(err) => break,
+        }
 
-        thread::sleep(time::Duration::from_millis(5000));
+        thread::sleep(time::Duration::from_millis(10000));
     }
 }
 
@@ -283,7 +289,7 @@ fn api_lastresort(mut _stream: TcpStream,homepath: &PathBuf,filename: &str) {
 
 
 fn file_check(filepath: &PathBuf) -> bool {
-    if print_debug() { println!("{}", Path::new(&filepath).exists()); }
+    if print_debug() { println!("DEBUG 0025 : {}", Path::new(&filepath).exists()); }
     Path::new(&filepath).exists()
 }
 
