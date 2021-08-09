@@ -8,8 +8,11 @@ use std::io::prelude::*;
 use std::net::{TcpStream,TcpListener,Shutdown};
 use std::fs::File;
 use std::sync::Mutex;
+use std::{thread, time};
+use std::time::Duration;
 
 //----------DEFAULT PARAMETER----------//
+const MAX_POOL_THREAD: usize = 8;
 const BUFFER: usize = 8000;     //request read buffer
 const DEBUG: bool = false;       //debug configuration
 
@@ -41,7 +44,7 @@ fn main() {
     if print_debug() { println!("DEBUG 0000 : {:?}",&basepath); }
     
     let listener = TcpListener::bind("0.0.0.0:8000").unwrap();
-    let pool = ThreadPool::new(128);
+    let pool = ThreadPool::new(MAX_POOL_THREAD);
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
@@ -79,6 +82,9 @@ fn handle_connection(mut stream: TcpStream,homepath: PathBuf) {
     if _parsed_len > 1 {
         filename = parsed[1];
     }
+    else {
+        filename = "/noresource.html"
+    }
 
     //change requested "/" to "index.html"
     if filename == "/" {
@@ -87,6 +93,17 @@ fn handle_connection(mut stream: TcpStream,homepath: PathBuf) {
     else {
         //remove first "/"
         filename = remove_first_slash(&filename);
+    }
+
+    //reparse requesr URI
+    //example: /aaa/bbb/ccc.html -> {"","aaa","bbb","ccc.html"}
+    let mut parsed_uri: Vec<&str> = parsed[1].split("/").collect();
+    //remove first null vector -> {"aaa","bbb","ccc.html"}
+    parsed_uri.drain(0..1);
+    let _parsed_uri_len = parsed_uri.len();
+    if print_debug() { println!("DEBUG 0020 : parsed_uri length : {}",_parsed_uri_len); }
+    for _i in parsed_uri.iter() {
+        if print_debug() { println!("DEBUG 0019 : {}",_i); }
     }
 
     let mut _response = String::new();
@@ -100,10 +117,21 @@ fn handle_connection(mut stream: TcpStream,homepath: PathBuf) {
         if print_debug() { println!("DEBUG 0016 : is api call {}",is_api(&filename)); }
         //Evaluate Request Method
         match parsed[0] {
-            "GET" => get_api(stream,&homepath,&filename),
-            "POST" => lastresort_api(stream,&homepath,&filename),
-            "PUT" => lastresort_api(stream,&homepath,&filename),
-            _ => lastresort_api(stream,&homepath,&filename),
+            "GET" => { 
+                if _parsed_uri_len > 1 {
+                    if print_debug() { println!("DEBUG 0023 : Matching api resource"); }
+                    match parsed_uri[1] {
+                        "test_sse.rs" => get_api_testsse(stream,&homepath,&filename),
+                        _ => get_api_lastresort(stream,&homepath,&filename),
+                    }
+                }
+                else {
+                    get_api_lastresort(stream,&homepath,&filename);
+                }
+            },
+            "POST" => api_lastresort(stream,&homepath,&filename),
+            "PUT" => api_lastresort(stream,&homepath,&filename),
+            _ => api_lastresort(stream,&homepath,&filename),
         }
     }
 
@@ -204,7 +232,33 @@ fn get_request<'a>(homepath: &'a PathBuf,filename: &str) -> String {
 //Request URI as resources and
 //Stream as TCPStream
 //-----------------------------------------------
-fn get_api(mut stream: TcpStream,homepath: &PathBuf,filename: &str) {
+fn get_api_testsse(mut stream: TcpStream,homepath: &PathBuf,filename: &str) {
+    if print_debug() { println!("DEBUG 0022 : \"TESTSSE\" GET API CALLED"); }
+    let mut response = String::new();
+    let mut contents = String::new();
+    let mut buffer = [0; BUFFER];
+
+    //Prepare HTTP Header
+    let status_line = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\n\r\n";
+
+    //stream.shutdown(Shutdown::Read).expect("shutdown call failed");
+    loop {
+        //contents = "data: {\"data\": \"test content\"}\r\n\r\n".to_string();
+        contents = "data: <img src=\"sample.gif\" alt=\"サンプル\">\r\n\r\n".to_string();
+
+        response = format!("{}{}", status_line, contents);
+
+        if print_debug() { println!("DEBUG 0024 : Response : {:?}",response); }
+        stream.write(response.as_bytes()).unwrap();
+        stream.flush().unwrap();
+
+        thread::sleep(time::Duration::from_millis(5000));
+    }
+}
+
+
+fn get_api_lastresort(mut stream: TcpStream,homepath: &PathBuf,filename: &str) {
+    if print_debug() { println!("DEBUG 0021 : GET API CALL GOES TO LAST RESORT"); }
     let mut _response = String::new();
     _response = format!("NOT IMPLEMENTED");
     stream.write(_response.as_bytes()).unwrap();
@@ -219,7 +273,7 @@ fn get_api(mut stream: TcpStream,homepath: &PathBuf,filename: &str) {
 //Stream as TCPStream
 //Shutdown TCP Connection immediately
 //-----------------------------------------------
-fn lastresort_api(mut _stream: TcpStream,homepath: &PathBuf,filename: &str) {
+fn api_lastresort(mut _stream: TcpStream,homepath: &PathBuf,filename: &str) {
     _stream.shutdown(Shutdown::Both).expect("shutdown call failed");
     if print_debug() { println!("DEBUG 0017 : API CALL GOES TO LAST RESORT"); }
 }
